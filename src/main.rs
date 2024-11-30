@@ -11,6 +11,7 @@ async fn handle_connection(stream: TcpStream) {
     while let Some(message) = read.next().await {
         let message = message.expect("Error reading message");
         if message.is_text() || message.is_binary() {
+            print!("Received message: {}",  message.to_string().as_str());
             write.send(Message::Text("Hello from server".to_string())).await.expect("Error sending message");
         }
     }
@@ -18,7 +19,7 @@ async fn handle_connection(stream: TcpStream) {
 
 #[tokio::main]
 async fn main() {
-    let addr = "127.0.0.1:8080";
+    let addr = "0.0.0.0:8080";
     let listener = TcpListener::bind(&addr).await.expect("Failed to bind");
 
     println!("Listening on: {}", addr);
