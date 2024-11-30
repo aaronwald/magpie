@@ -1,0 +1,13 @@
+[package]
+name = "magpie"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+paho-mqtt = { version = "0.12.3", features=["vendored-ssl"] }
+serde = "1.0.215"
+serde_json = "1.0.133"
+env_logger = "0.11.5"
+async-std = "1.13.0"
+log = "0.4.22"
+futures = "0.3.31"
