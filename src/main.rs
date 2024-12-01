@@ -12,15 +12,13 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use std::{process, time::Duration};
 use paho_mqtt as mqtt;
-// use serde_json::Value;
+use serde_json::Value;
 const QOS: &[i32] = &[mqtt::QOS_0];
 use futures::stream::select_all;
 
 const SUBS: &[&str] = &["rtl_433/Acurite-Atlas/622/msg5"];
 
 async fn domqtt (ctx: Sender<String>) -> Result<()> {
-    ctx.send("domqtt".to_string()).await.expect("Error sending message");
-    
     let host = "mqtt://homeassistant.local:1883".to_string();
 
     info!("Connecting to the MQTT broker at '{}'...", host);
@@ -64,7 +62,29 @@ async fn domqtt (ctx: Sender<String>) -> Result<()> {
             let s: String = msg.payload_str().into_owned();
             info!("Received message: {:?}", msg.topic());
 
+            serde_json::from_str(&s).map(|json: Value| {
+                json.get("humidity").map(|temp| {
+                    info!("humidity: {:?}", temp);
+                }).unwrap_or_else(|| {
+                    error!("humidity not found");
+                });
+                
+                json.get("temperature_F").map(|temp| {
+                    let s = format!("{:?}", temp);
+                    info!("temp(F): {:?}", s);
+                        // ctx.send(s).await.expect("Error sending message");
+                });
+            }).unwrap_or_else(|e| {
+                error!("Error parsing JSON: {:?}", e);
+            });
+
             ctx.send(s.to_string()).await.expect("Error sending message");
+        } else {
+            warn!("Lost connection. Attempting reconnect...");
+            cli.reconnect().await.unwrap_or_else(|e| {
+                error!("Error reconnecting: {:?}", e);
+                process::exit(1);
+            });
         }
     }
 
@@ -89,15 +109,6 @@ async fn handle_connection(peer: SocketAddr, stream: TcpStream) -> Result<()> {
     let (ctx, mut crx) = mpsc::channel(32);
     let cctx = ctx.clone();
 
-    // spawn a task that reads a bounded channel and writes to the websocket
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-        loop {
-            interval.tick().await;
-            ctx.send("ping".to_string()).await.expect("Error sending message");
-        }
-    });
-
     tokio::spawn(async move {
         while let Some(message) = crx.recv().await {
             write.send(Message::Text(message)).await.expect("Error sending message");
@@ -114,7 +125,6 @@ async fn handle_connection(peer: SocketAddr, stream: TcpStream) -> Result<()> {
         if message.is_text() || message.is_binary() {
             let s = format!("{msg}", msg = message.to_string());
             info!("Received message: {}", s);
-            // just log
         }
     }
     Ok(())
