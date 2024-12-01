@@ -12,10 +12,9 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use std::{process, time::Duration};
 use paho_mqtt as mqtt;
-use serde_json::Value;
+// use serde_json::Value;
 const QOS: &[i32] = &[mqtt::QOS_0];
 use futures::stream::select_all;
-use futures::{executor::block_on};
 
 const SUBS: &[&str] = &["rtl_433/Acurite-Atlas/622/msg5"];
 
@@ -38,71 +37,35 @@ async fn domqtt (ctx: Sender<String>) -> Result<()> {
         error!("Error creating the client: {:?}", e);
         process::exit(1);
     });
-    
-    if let Err(err) = block_on(async {
-        let strm = cli.get_stream(25);
+
+    let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
+    .keep_alive_interval(Duration::from_secs(30))
+    .clean_session(false)
+    // .will_message(lwt)
+    .user_name("mqtt")
+    .password("mqtt")
+    .finalize();
+    cli.connect(conn_opts).await.unwrap_or_else(|e| {
+        error!("Unable to connect: {:?}", e);
+        process::exit(1);
+    });
+
+    cli.subscribe_many(SUBS, QOS).await.unwrap_or_else(|e| {
+        error!("Error subscribing to topics: {:?}", e);
+        process::exit(1);
+    });
+    let strm = cli.get_stream(25);
+    let streams: Vec<_> = vec![strm];
         
-        // Define the set of options for the connection
-        let _lwt = mqtt::Message::new(
-            "test/lwt",
-            "[LWT] Async subscriber lost connection",
-            mqtt::QOS_1,
-        );
         
-        // Create the connect options, explicitly requesting MQTT v3.x
-        let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
-        .keep_alive_interval(Duration::from_secs(30))
-        .clean_session(false)
-        // .will_message(lwt)
-        .user_name("mqtt")
-        .password("mqtt")
-        .finalize();
-        
-        // Make the connection to the broker
-        cli.connect(conn_opts).await?;
-        
-        info!("Subscribing to topics: {:?}", SUBS);
-        cli.subscribe_many(SUBS, QOS).await?;
-        
-        let mut rconn_attempt: usize = 0;
-        let streams: Vec<_> = vec![strm];
-        
-        let mut fused_streams = select_all(streams);
-        while let Some(value) = fused_streams.next().await {
-            if let Some(msg) = value {
-                let s: String = msg.payload_str().into_owned();
-                info!("Received message: {:?}", msg.topic());
-                serde_json::from_str(&s).map(|json: Value| {
-                    json.get("humidity").map(|temp| {
-                        info!("humidity: {:?}", temp);
-                    }).unwrap_or_else(|| {
-                        error!("humidity not found");
-                    });
-                    
-                    json.get("temperature_F").map(|temp| {
-                        info!("temp(F): {:?}", temp);
-                        ctx.send(format!("temp(F): {:?}", temp));
-                    });
-                }).unwrap_or_else(|e| {
-                    error!("Error parsing JSON: {:?}", e);
-                });
-            } else {
-                // A "None" means we were disconnected. Try to reconnect...
-                warn!("Lost connection. Attempting reconnect...");
-                while let Err(err) = cli.reconnect().await {
-                    rconn_attempt += 1;
-                    warn!("Error reconnecting #{}: {}", rconn_attempt, err);
-                    // For tokio use: tokio::time::delay_for()
-                    async_std::task::sleep(Duration::from_secs(1)).await;
-                }
-                warn!("Reconnected.");
-            }
+    let mut fused_streams = select_all(streams);
+    while let Some(value) = fused_streams.next().await {
+        if let Some(msg) = value {
+            let s: String = msg.payload_str().into_owned();
+            info!("Received message: {:?}", msg.topic());
+
+            ctx.send(s.to_string()).await.expect("Error sending message");
         }
-        
-        // Explicit return type for the async block
-        Ok::<(), mqtt::Error>(())
-    }) {
-        warn!("{}", err);
     }
 
     Ok(())
