@@ -59,18 +59,18 @@ async fn domqtt (ctx: Sender<String>) -> Result<()> {
     while let Some(value) = fused_streams.next().await {
         if let Some(msg) = value {
             let s: String = msg.payload_str().into_owned();
-            info!("Received message: {:?}", msg.topic());
+            debug!("Received message: {:?} {:?}", msg.topic(), s);
 
             if let Ok(json) = serde_json::from_str::<Value>(&s) {
                 if let Some(humidity) = json.get("humidity") {
-                    info!("humidity: {:?}", humidity);
+                    debug!("humidity: {:?}", humidity);
                 } else {
                     error!("humidity not found");
                 }
 
                 if let Some(temp) = json.get("temperature_F") {
                     let temp_str = format!("{:?}", temp);
-                    info!("temp(F): {:?}", temp_str);
+                    debug!("temp(F): {:?}", temp_str);
                     if !temp_str.is_empty() {
                         let json_temp = serde_json::json!({ "temperature_F": temp });
                         ctx.send(json_temp.to_string()).await.expect("Error sending message");
