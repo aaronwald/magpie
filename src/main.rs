@@ -1,4 +1,3 @@
-
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{
     accept_async,
@@ -62,23 +61,28 @@ async fn domqtt (ctx: Sender<String>) -> Result<()> {
             let s: String = msg.payload_str().into_owned();
             info!("Received message: {:?}", msg.topic());
 
-            serde_json::from_str(&s).map(|json: Value| {
-                json.get("humidity").map(|temp| {
-                    info!("humidity: {:?}", temp);
-                }).unwrap_or_else(|| {
+            if let Ok(json) = serde_json::from_str::<Value>(&s) {
+                if let Some(humidity) = json.get("humidity") {
+                    info!("humidity: {:?}", humidity);
+                } else {
                     error!("humidity not found");
-                });
-                
-                json.get("temperature_F").map(|temp| {
-                    let s = format!("{:?}", temp);
-                    info!("temp(F): {:?}", s);
-                        // ctx.send(s).await.expect("Error sending message");
-                });
-            }).unwrap_or_else(|e| {
-                error!("Error parsing JSON: {:?}", e);
-            });
+                }
 
-            ctx.send(s.to_string()).await.expect("Error sending message");
+                if let Some(temp) = json.get("temperature_F") {
+                    let temp_str = format!("{:?}", temp);
+                    info!("temp(F): {:?}", temp_str);
+                    if !temp_str.is_empty() {
+                        let json_temp = serde_json::json!({ "temperature_F": temp });
+                        ctx.send(json_temp.to_string()).await.expect("Error sending message");
+                    }
+                } else {
+                    error!("temperature_F not found");
+                }
+            } else {
+                error!("Error parsing JSON: {:?}", s);
+            }
+
+            // ctx.send(s.to_string()).await.expect("Error sending message");
         } else {
             warn!("Lost connection. Attempting reconnect...");
             cli.reconnect().await.unwrap_or_else(|e| {
