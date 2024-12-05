@@ -14,8 +14,23 @@ use paho_mqtt as mqtt;
 use serde_json::Value;
 const QOS: &[i32] = &[mqtt::QOS_0];
 use futures::stream::select_all;
+use std::fs::OpenOptions;
+use std::io::prelude::*;
 
 const SUBS: &[&str] = &["rtl_433/Acurite-Atlas/622/msg5"];
+
+fn write_to_file (file_name:String, s: &String) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open(file_name)
+        .expect("Error opening file");
+
+    if let Err(e) = writeln!(file, "{}", s) {
+        eprintln!("Couldn't write to file: {}", e);
+    }
+}
 
 async fn domqtt (ctx: Sender<String>) -> Result<()> {
     let host = "mqtt://homeassistant.local:1883".to_string();
@@ -60,6 +75,7 @@ async fn domqtt (ctx: Sender<String>) -> Result<()> {
         if let Some(msg) = value {
             let s: String = msg.payload_str().into_owned();
             debug!("Received message: {:?} {:?}", msg.topic(), s);
+            write_to_file("/data/rtl_433.json".to_string(), &s);
             
             if let Ok(json) = serde_json::from_str::<Value>(&s) {
                 if let Some(humidity) = json.get("humidity") {
