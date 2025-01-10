@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"899bushwick/magpie/email"
 	"fmt"
 	"log/slog"
 	"os"
@@ -35,30 +35,6 @@ var CLI struct {
 	} `cmd:"" help:"Play Sound."`
 }
 
-type Payload struct {
-	Encryption    bool   `json:"encryption"`
-	BTHomeVersion int    `json:"BTHome_version"`
-	Pid           int    `json:"pid"`
-	Battery       int    `json:"Battery"`
-	Illuminance   int    `json:"Illuminance"`
-	Motion        int    `json:"Motion"`
-	Addr          string `json:"addr"`
-	Rssi          int    `json:"rssi"`
-}
-
-func SendEmail(msg MQTT.Message, from string, to string, subject string) {
-	// TODO
-	var payload Payload
-	err := json.Unmarshal(msg.Payload(), &payload)
-	if err != nil {
-		fmt.Printf("Error parsing JSON: %s\n", err)
-		return
-	}
-
-	// Use the parsed data
-	slog.Debug("Parsed payload", "payload", payload)
-}
-
 // var soundHandler MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 // 	// TODO
 // }
@@ -68,7 +44,7 @@ func DoEmail(ctx *kong.Context, hostname string) {
 	opts.SetClientID("rook_" + hostname)
 
 	emailHandler := func(client MQTT.Client, msg MQTT.Message) {
-		SendEmail(msg, CLI.Email.From, CLI.Email.To, CLI.Email.Subject)
+		email.SendEmail(msg, CLI.Email.From, CLI.Email.To, CLI.Email.Subject)
 	}
 
 	opts.SetDefaultPublishHandler(emailHandler)

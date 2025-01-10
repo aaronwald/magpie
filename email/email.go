@@ -2,6 +2,7 @@ package email
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/smtp"
@@ -71,4 +72,28 @@ func Send(to, subject, body string, gmail_username string, gmail_password string
 
 	slog.Info("Email sent successfully")
 	return nil
+}
+
+type Payload struct {
+	Encryption    bool   `json:"encryption"`
+	BTHomeVersion int    `json:"BTHome_version"`
+	Pid           int    `json:"pid"`
+	Battery       int    `json:"Battery"`
+	Illuminance   int    `json:"Illuminance"`
+	Motion        int    `json:"Motion"`
+	Addr          string `json:"addr"`
+	Rssi          int    `json:"rssi"`
+}
+
+func SendEmail(msg MQTT.Message, from string, to string, subject string) {
+	// TODO
+	var payload Payload
+	err := json.Unmarshal(msg.Payload(), &payload)
+	if err != nil {
+		fmt.Printf("Error parsing JSON: %s\n", err)
+		return
+	}
+
+	// Use the parsed data
+	slog.Debug("Parsed payload", "payload", payload)
 }
