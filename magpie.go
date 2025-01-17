@@ -77,7 +77,7 @@ func DoEmail(ctx *kong.Context, hostname string) {
 	gmail_password := strings.TrimSpace(string(dat2))
 
 	emailHandler := func(client MQTT.Client, msg MQTT.Message) {
-		ExtractEmail(msg, CLI.Email.From, CLI.Email.To, CLI.Email.Subject, gmail_username, gmail_password)
+		go ExtractEmail(msg, CLI.Email.From, CLI.Email.To, CLI.Email.Subject, gmail_username, gmail_password)
 	}
 
 	opts.SetDefaultPublishHandler(emailHandler)
