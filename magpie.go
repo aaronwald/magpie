@@ -94,6 +94,46 @@ func OpenCloseEmail(msg MQTT.Message,
 	}
 }
 
+func MotionEmail(msg MQTT.Message,
+	from string,
+	to string,
+	gmail_username string,
+	gmail_password string) {
+
+	var update schema.ShellyMotion
+	err := json.Unmarshal(msg.Payload(), &update)
+	if err != nil {
+		fmt.Printf("Error parsing JSON: %s\n", err)
+		return
+	}
+
+	// Use the parsed data
+	slog.Debug("Parsed payload", "topic", msg.Topic())
+	slog.Debug("Parsed payload", "update", update)
+
+	send_email := true
+
+	email_body := fmt.Sprintf("Magpie. Topic: %s\nMotion: %d\n", msg.Topic(), update.Motion)
+
+	// check previoius value
+	val, ok := openclose_map[msg.Topic()]
+	if ok {
+		send_email = val == update.Motion
+	}
+
+	openclose_map[msg.Topic()] = update.Motion
+
+	if send_email {
+		var subject string
+		if update.Motion == 1 {
+			subject = msg.Topic() + ": Motion Detected"
+		} else {
+			subject = msg.Topic() + ": Motion Cleared"
+		}
+		email.Send(to, subject, email_body, gmail_username, gmail_password)
+	}
+}
+
 func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 	opts := MQTT.NewClientOptions().AddBroker(fmt.Sprintf("tcp://%s:%d", CLI.Email.MqttHostname, CLI.Email.MqttPort))
 	opts.SetClientID("rook_" + hostname)
@@ -113,6 +153,8 @@ func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 	emailHandler := func(client MQTT.Client, msg MQTT.Message) {
 		if strings.HasPrefix(msg.Topic(), "mostert/openclose/") {
 			go OpenCloseEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
+		} else if strings.HasPrefix(msg.Topic(), "mostert/motion/") {
+			go MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		}
 	}
 
