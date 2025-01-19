@@ -2,6 +2,7 @@ package main
 
 import (
 	"899bushwick/magpie/email"
+	"899bushwick/magpie/lms"
 	"899bushwick/magpie/schema"
 	"encoding/json"
 	"fmt"
@@ -71,7 +72,8 @@ func OpenCloseEmail(msg MQTT.Message,
 	slog.Debug("Parsed payload", "topic", msg.Topic())
 	slog.Debug("Parsed payload", "update", update)
 
-	send_email := true
+	send_email := true // change detected
+	play_sound := true
 
 	email_body := fmt.Sprintf("Magpie. Topic: %s\nWindow: %d\n", msg.Topic(), update.Window)
 
@@ -90,7 +92,15 @@ func OpenCloseEmail(msg MQTT.Message,
 		} else {
 			subject = msg.Topic() + ": Closed"
 		}
-		email.Send(to, subject, email_body, gmail_username, gmail_password)
+		go email.Send(to, subject, email_body, gmail_username, gmail_password)
+	}
+
+	if play_sound && send_email {
+		if update.Window == 1 {
+			go lms.PlaySound(fmt.Sprintf("/music/%s_open.mp3", msg.Topic()))
+		} else {
+			go lms.PlaySound(fmt.Sprintf("/music/%s_closed.mp3", msg.Topic()))
+		}
 	}
 }
 
@@ -116,12 +126,12 @@ func MotionEmail(msg MQTT.Message,
 	email_body := fmt.Sprintf("Magpie. Topic: %s\nMotion: %d\n", msg.Topic(), update.Motion)
 
 	// check previoius value
-	val, ok := openclose_map[msg.Topic()]
+	val, ok := motion_map[msg.Topic()]
 	if ok {
 		send_email = val == update.Motion
 	}
 
-	openclose_map[msg.Topic()] = update.Motion
+	motion_map[msg.Topic()] = update.Motion
 
 	if send_email {
 		var subject string
@@ -130,7 +140,7 @@ func MotionEmail(msg MQTT.Message,
 		} else {
 			subject = msg.Topic() + ": Motion Cleared"
 		}
-		email.Send(to, subject, email_body, gmail_username, gmail_password)
+		go email.Send(to, subject, email_body, gmail_username, gmail_password)
 	}
 }
 
@@ -152,9 +162,9 @@ func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 
 	emailHandler := func(client MQTT.Client, msg MQTT.Message) {
 		if strings.HasPrefix(msg.Topic(), "mostert/openclose/") {
-			go OpenCloseEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
+			OpenCloseEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		} else if strings.HasPrefix(msg.Topic(), "mostert/motion/") {
-			go MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
+			MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		}
 	}
 
@@ -212,30 +222,3 @@ func main() {
 	slog.Info("Exiting gracefully.")
 
 }
-
-// func DoMotion(msg MQTT.Message) {
-// 	// Parse the JSON payload
-// 	var payload Payload
-// 	err := json.Unmarshal(msg.Payload(), &payload)
-// 	if err != nil {
-// 		fmt.Printf("Error parsing JSON: %s\n", err)
-// 		return
-// 	}
-
-// 	// Use the parsed data
-// 	slog.Debug("Parsed payload", "payload", payload)
-
-// 	val, ok := motion_map[msg.Topic()]
-// 	if (ok && val != payload.Motion) || !ok {
-// 		body := "Motion detected"
-// 		if payload.Motion == 0 {
-// 			body = "Motion cleared"
-// 		}
-// 		err = sendEmail(gmail_username, msg.Topic(), body)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 	}
-
-// 	motion_map[msg.Topic()] = payload.Motion
-// }
