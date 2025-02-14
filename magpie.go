@@ -3,6 +3,7 @@ package main
 import (
 	"899bushwick/magpie/email"
 	"899bushwick/magpie/lms"
+	"899bushwick/magpie/rcache"
 	"899bushwick/magpie/schema"
 	"encoding/json"
 	"fmt"
@@ -73,7 +74,14 @@ func OpenCloseEmail(msg MQTT.Message,
 	slog.Debug("Parsed payload", "update", update)
 
 	send_email := true // change detected
-	play_sound := true
+	play_sound := false
+	sound_enabled, err := rcache.CheckEnabled()
+	if err != nil {
+		slog.Error("check_enabled", "error", err)
+	} else {
+		play_sound = sound_enabled.Enabled
+	}
+	slog.Debug("check_enabled", "sound_enabled", sound_enabled)
 
 	email_body := fmt.Sprintf("Magpie. Topic: %s\nWindow: %d\n", msg.Topic(), update.Window)
 
@@ -201,7 +209,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// rcache.SubscribeRedis()
+	go rcache.SubscribeRedis()
 
 	ctx := kong.Parse(&CLI)
 	switch ctx.Command() {
