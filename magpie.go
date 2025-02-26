@@ -88,7 +88,7 @@ func OpenCloseEmail(msg MQTT.Message,
 	// check previoius value
 	val, ok := openclose_map[msg.Topic()]
 	if ok {
-		send_email = val == update.Window
+		send_email = val != update.Window
 	}
 
 	openclose_map[msg.Topic()] = update.Window
