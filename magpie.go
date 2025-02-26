@@ -34,24 +34,6 @@ var CLI struct {
 		To           string `help:"Email to." arg:""`
 	} `cmd:"" help:"Send email."`
 
-	PlaySound struct {
-		MqttUsername string `help:"MQTT username." arg:""`
-		MqttPassword string `help:"MQTT password." arg:""`
-		MqttHostname string `help:"MQTT hostname." arg:""`
-		MqttPort     int    `help:"MQTT port." default:"1883"`
-		Topic        string `help:"MQTT topic to subscribe to." arg:""`
-	} `cmd:"" help:"Play Sound."`
-
-	Shelly struct {
-		MqttUsername string `help:"MQTT username." arg:""`
-		MqttPassword string `help:"MQTT password." arg:""`
-		MqttHostname string `help:"MQTT hostname." arg:""`
-		MqttPort     int    `help:"MQTT port." default:"1883"`
-		SourceTopic  string `help:"MQTT topic to subscribe to." arg:""`
-		DestTopic    string `help:"MQTT topic to subscribe to." arg:""`
-		Type         string `enum:"motion,window" help:"Type of Shelly device." arg:""`
-	} `cmd:"" help:"Play Sound."`
-
 	GmailUsernameFile string `help:"Gmail username." default:"gmail_username.txt"`
 	GmailPasswordFile string `help:"Gmail password. Access" default:"gmail_password.txt"`
 }
@@ -220,8 +202,6 @@ func main() {
 	switch ctx.Command() {
 	case "email <mqtt-username> <mqtt-password> <mqtt-hostname> <topic> <from> <to>":
 		DoEmail(ctx, hostname)
-	case "shelly":
-	case "playsound":
 	default:
 		panic(ctx.Command())
 	}
