@@ -126,27 +126,32 @@ func MotionEmail(msg MQTT.Message,
 	}
 
 	// Use the parsed data
-	slog.Debug("Parsed payload", "topic", msg.Topic())
+	var topic string = msg.Topic()
+	var motion int = update.Motion
+	slog.Debug("Parsed payload", "topic", topic)
 	slog.Debug("Parsed payload", "update", update)
 
+	// defalt to send if no previous value
 	send_email := true
 
-	email_body := fmt.Sprintf("Magpie. Topic: %s\nMotion: %d\n", msg.Topic(), update.Motion)
+	email_body := fmt.Sprintf("Magpie. Topic: %s\nMotion: %d\n", topic, motion)
 
 	// check previoius value
-	val, ok := motion_map[msg.Topic()]
+	last_val, ok := motion_map[topic]
 	if ok {
-		send_email = val == update.Motion
+		send_email = last_val == motion
+
+		email_body += fmt.Sprintf("Last value: %d\n", last_val)
 	}
 
-	motion_map[msg.Topic()] = update.Motion
+	motion_map[topic] = motion
 
 	if send_email {
 		var subject string
-		if update.Motion == 1 {
-			subject = msg.Topic() + ": Motion Detected"
+		if motion == 1 {
+			subject = topic + ": Motion Detected"
 		} else {
-			subject = msg.Topic() + ": Motion Cleared"
+			subject = topic + ": Motion Cleared"
 		}
 		go email.Send(to, subject, email_body, gmail_username, gmail_password)
 	}
