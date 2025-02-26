@@ -139,7 +139,7 @@ func MotionEmail(msg MQTT.Message,
 	// check previoius value
 	last_val, ok := motion_map[topic]
 	if ok {
-		send_email = last_val == motion
+		send_email = last_val != motion
 
 		email_body += fmt.Sprintf("Last value: %d\n", last_val)
 	}
