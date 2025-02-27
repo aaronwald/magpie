@@ -50,7 +50,8 @@ func SetOpenClose(topic string, status int) error {
 		return err
 	}
 
-	slog.Debug("set_openclose", "result", val)
+	slog.Info("set_openclose", "topic", topic)
+	slog.Info("set_openclose", "result", val)
 	return nil
 }
 
