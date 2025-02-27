@@ -87,6 +87,8 @@ func OpenCloseEmail(msg MQTT.Message,
 		go email.Send(to, subject, email_body, gmail_username, gmail_password)
 	}
 
+	rcache.SetOpenClose(msg.Topic(), update.Window)
+
 	if play_sound && send_email {
 		if update.Window == 1 {
 			go lms.PlaySound(fmt.Sprintf("/music/%s_open.mp3", msg.Topic()))
