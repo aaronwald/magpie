@@ -36,6 +36,7 @@ var CLI struct {
 
 	GmailUsernameFile string `help:"Gmail username." default:"gmail_username.txt"`
 	GmailPasswordFile string `help:"Gmail password. Access" default:"gmail_password.txt"`
+	RedisUrl          string `help:"Redis URL." default:"redis:6379"`
 }
 
 func OpenCloseEmail(msg MQTT.Message,
@@ -55,6 +56,7 @@ func OpenCloseEmail(msg MQTT.Message,
 	slog.Debug("Parsed payload", "topic", msg.Topic())
 	slog.Debug("Parsed payload", "update", update)
 
+	rcache.RedisUrl = CLI.RedisUrl
 	send_email := true // change detected
 	play_sound := false
 	sound_enabled, err := rcache.CheckEnabled()
@@ -209,9 +211,7 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	// TODO Add a little REST API to get status
 	slog.Info("Waiting for messages.")
 	<-c
 	slog.Info("Exiting gracefully.")
-
 }

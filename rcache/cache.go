@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	redisUri string = "redis:6379"
+	RedisUrl string = "redis:6379"
 )
 
 var redisContext = context.Background()
@@ -21,7 +21,7 @@ type EnableSound struct {
 
 func CheckEnabled() (EnableSound, error) {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     redisUri,
+		Addr:     RedisUrl,
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
@@ -37,9 +37,26 @@ func CheckEnabled() (EnableSound, error) {
 	return data, nil
 }
 
+func SetOpenClose(topic string, status int) error {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     RedisUrl,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	val, err := rdb.Set(redisContext, topic, status, 0).Result()
+	if err != nil {
+		slog.Error("set_openclose", "error", err)
+		return err
+	}
+
+	slog.Debug("set_openclose", "result", val)
+	return nil
+}
+
 func SubscribeRedis() {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     redisUri,
+		Addr:     RedisUrl,
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
