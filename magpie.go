@@ -39,6 +39,27 @@ var CLI struct {
 	RedisUrl          string `help:"Redis URL." default:"redis:6379"`
 }
 
+func GarageHandler(msg MQTT.Message) {
+
+	if strings.HasSuffix(msg.Topic(), "/rpc") {
+		slog.Debug("GarageHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
+		var update schema.ShellyRpcInput
+		err := json.Unmarshal(msg.Payload(), &update)
+		if err != nil {
+			fmt.Printf("Error parsing JSON: %s\n", err)
+			return
+		}
+		slog.Debug("Parsed payload", "update", update)
+
+		// input state is the reed swtich (disconnected)
+		var garageKey string = strings.Replace(msg.Topic(), "/events/rpc", "", 1)
+		rcache.SetGarageState(garageKey, update.Params.Input.State)
+	} else if strings.HasSuffix(msg.Topic(), "/online") {
+		// ignore
+		slog.Debug("GarageHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
+	}
+}
+
 func OpenCloseEmail(msg MQTT.Message,
 	from string,
 	to string,
@@ -164,6 +185,10 @@ func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 			OpenCloseEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		} else if strings.HasPrefix(msg.Topic(), "mostert/motion/") {
 			MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
+		} else if strings.HasPrefix(msg.Topic(), "mostert/garage/") {
+			GarageHandler(msg)
+		} else {
+			slog.Warn("Unhandled topic", "topic", msg.Topic())
 		}
 	}
 
