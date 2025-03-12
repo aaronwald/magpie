@@ -5,6 +5,7 @@ import (
 	"899bushwick/magpie/lms"
 	"899bushwick/magpie/rcache"
 	"899bushwick/magpie/schema"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -17,6 +18,10 @@ import (
 	"github.com/alecthomas/kong"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/lmittmann/tint"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	pb "899bushwick/magpie/api"
 )
 
 var (
@@ -37,10 +42,33 @@ var CLI struct {
 	GmailUsernameFile string `help:"Gmail username." default:"gmail_username.txt"`
 	GmailPasswordFile string `help:"Gmail password. Access" default:"gmail_password.txt"`
 	RedisUrl          string `help:"Redis URL." default:"redis:6379"`
+	ChoughAddr        string `help:"Chough address." default:"localhost:9099"`
 }
 
-func GarageHandler(msg MQTT.Message) {
+func SetDoorState(addr string, house_id int32, door_id string, state bool) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	client := pb.NewChoughServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	fh := &pb.DoorStatus{}
 
+	fh.Door.Id = door_id
+	fh.House.Id = house_id
+	fh.State.Open = state
+
+	ret, err := client.SetDoorState(ctx, fh)
+	if err != nil {
+		slog.Error("doEnable", "error", err)
+		panic(err)
+	}
+	slog.Info("doEnable", "ret", ret)
+}
+
+func GarageHandler(msg MQTT.Message, chough_addr string) {
 	if strings.HasSuffix(msg.Topic(), "/rpc") {
 		slog.Debug("GarageHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
 		var update schema.ShellyRpcInput
@@ -53,7 +81,9 @@ func GarageHandler(msg MQTT.Message) {
 
 		// input state is the reed swtich (disconnected)
 		var garageKey string = strings.Replace(msg.Topic(), "/events/rpc", "", 1)
-		rcache.SetGarageState(garageKey, update.Params.Input.State)
+		var house_id int32 = 1 // mostert
+		SetDoorState(chough_addr, house_id, garageKey, update.Params.Input.State)
+
 	} else if strings.HasSuffix(msg.Topic(), "/online") {
 		// ignore
 		slog.Debug("GarageHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
@@ -164,7 +194,7 @@ func MotionEmail(msg MQTT.Message,
 	}
 }
 
-func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
+func DoEmail(ctx *kong.Context, hostname string, chough_addr string) MQTT.Client {
 	opts := MQTT.NewClientOptions().AddBroker(fmt.Sprintf("tcp://%s:%d", CLI.Email.MqttHostname, CLI.Email.MqttPort))
 	opts.SetClientID("rook_" + hostname)
 
@@ -186,7 +216,7 @@ func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 		} else if strings.HasPrefix(msg.Topic(), "mostert/motion/") {
 			MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		} else if strings.HasPrefix(msg.Topic(), "mostert/garage/") {
-			GarageHandler(msg)
+			GarageHandler(msg, chough_addr)
 		} else {
 			slog.Warn("Unhandled topic", "topic", msg.Topic())
 		}
@@ -228,7 +258,7 @@ func main() {
 	ctx := kong.Parse(&CLI)
 	switch ctx.Command() {
 	case "email <mqtt-username> <mqtt-password> <mqtt-hostname> <topic> <from> <to>":
-		DoEmail(ctx, hostname)
+		DoEmail(ctx, hostname, CLI.ChoughAddr)
 	default:
 		panic(ctx.Command())
 	}

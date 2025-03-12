@@ -55,23 +55,23 @@ func SetOpenClose(topic string, status int) error {
 	return nil
 }
 
-func SetGarageState(topic string, state bool) error {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     RedisUrl,
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
+// func SetGarageState(topic string, state bool) error {
+// 	rdb := redis.NewClient(&redis.Options{
+// 		Addr:     RedisUrl,
+// 		Password: "", // no password set
+// 		DB:       0,  // use default DB
+// 	})
 
-	val, err := rdb.Set(redisContext, topic, state, 0).Result()
-	if err != nil {
-		slog.Error("set_garage_state", "error", err)
-		return err
-	}
+// 	val, err := rdb.Set(redisContext, topic, state, 0).Result()
+// 	if err != nil {
+// 		slog.Error("set_garage_state", "error", err)
+// 		return err
+// 	}
 
-	slog.Debug("set_garage_state", "topic", topic)
-	slog.Debug("set_garage_state", "result", val)
-	return nil
-}
+// 	slog.Debug("set_garage_state", "topic", topic)
+// 	slog.Debug("set_garage_state", "result", val)
+// 	return nil
+// }
 
 func SubscribeRedis() {
 	rdb := redis.NewClient(&redis.Options{
