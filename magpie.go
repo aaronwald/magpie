@@ -198,8 +198,6 @@ func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 
 	client := MQTT.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		slog.Error("Mqtt", "connect", CLI.Email.MqttUsername)
-		slog.Error("Mqtt", "connect", CLI.Email.MqttPassword)
 		slog.Error("Mqtt", "connect", token.Error())
 		os.Exit(1)
 	}
