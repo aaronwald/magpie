@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package chough.msg;
+option go_package = "./api";
+
+message StatusMessage {
+  bool enabled = 1;
+  string message = 2;
+}
+
+message ReturnMessage {
+  bool success = 1;
+  string message = 2;
+}
+
+message House {
+  int32 id = 1;
+}
+
+message Door {
+  string id = 1;
+}
+
+message DoorState {
+  bool open = 1;
+}
+
+message DoorStatus {
+  House house = 1;
+  Door door = 2;
+  DoorState state = 3;
+}
+
+message Empty {}
+
+service ChoughService {
+  rpc GetStatus (Empty) returns (StatusMessage);
+
+  rpc FlushSoundStatus (Empty) returns (Empty);
+  rpc GetSoundStatus (Empty) returns (StatusMessage);
+  rpc SetSoundStatus (StatusMessage) returns (StatusMessage);
+
+  rpc FlushHomeStatus (House) returns (Empty);
+
+  rpc SetDoorState (DoorStatus) returns (ReturnMessage);
+}
