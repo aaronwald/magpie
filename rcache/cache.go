@@ -35,7 +35,10 @@ func CheckEnabled() (EnableSound, error) {
 
 	var data EnableSound
 	slog.Info("CheckEnabled", "json", val)
-	json.Unmarshal([]byte(val), &data)
+	err = json.Unmarshal([]byte(val), &data)
+	if err != nil {
+		slog.Error("check_enabled", "error", err)
+	}
 	return data, nil
 }
 
