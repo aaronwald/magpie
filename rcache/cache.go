@@ -16,7 +16,8 @@ var (
 var redisContext = context.Background()
 
 type EnableSound struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool   `json:"enabled"`
+	Message string `json:"message"`
 }
 
 func CheckEnabled() (EnableSound, error) {
@@ -33,6 +34,7 @@ func CheckEnabled() (EnableSound, error) {
 	}
 
 	var data EnableSound
+	slog.Info("CheckEnabled", "json", val)
 	json.Unmarshal([]byte(val), &data)
 	return data, nil
 }
