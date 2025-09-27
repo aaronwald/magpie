@@ -108,15 +108,14 @@ func OpenCloseEmail(msg MQTT.Message,
 	slog.Debug("Parsed payload", "update", update)
 
 	rcache.RedisUrl = CLI.RedisUrl
-	send_email := true // change detected
+	send_email := true
 	play_sound := false
-	sound_enabled, err := rcache.CheckEnabled()
+	sound_enabled, err := rcache.CheckSoundEnabled()
 	if err != nil {
 		slog.Error("check_enabled", "error", err)
 	} else {
 		play_sound = sound_enabled.Enabled
 	}
-	slog.Debug("check_enabled", "sound_enabled", sound_enabled)
 
 	email_body := fmt.Sprintf("Magpie. Topic: %s\nWindow: %d\n", msg.Topic(), update.Window)
 
@@ -128,7 +127,13 @@ func OpenCloseEmail(msg MQTT.Message,
 
 	openclose_map[msg.Topic()] = update.Window
 
-	if send_email {
+	email_enabled, err := rcache.CheckEmailEnabled()
+	if err != nil {
+		slog.Error("check_enabled", "error", err)
+	}
+
+	// only send email if enabled
+	if send_email && email_enabled.Enabled {
 		var subject string
 		if update.Window == 1 {
 			subject = msg.Topic() + ": Open"
