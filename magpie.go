@@ -131,6 +131,7 @@ func OpenCloseEmail(msg MQTT.Message,
 	if err != nil {
 		slog.Error("check_enabled", "error", err)
 	}
+	slog.Info("email_enabled", "value", email_enabled.Enabled, "send_email", send_email, "play_sound", play_sound)
 
 	// only send email if enabled
 	if send_email && email_enabled.Enabled {
