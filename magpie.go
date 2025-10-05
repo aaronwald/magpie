@@ -189,6 +189,12 @@ func MotionEmail(msg MQTT.Message,
 
 	motion_map[topic] = motion
 
+	email_enabled, err := rcache.CheckEmailEnabled()
+	if err != nil {
+		slog.Error("check_enabled", "error", err)
+	}
+	slog.Info("email_enabled", "value", email_enabled.Enabled, "send_email", send_email)
+
 	if send_email {
 		var subject string
 		if motion == 1 {
@@ -196,7 +202,9 @@ func MotionEmail(msg MQTT.Message,
 		} else {
 			subject = topic + ": Motion Cleared"
 		}
-		go email.Send(to, subject, email_body, gmail_username, gmail_password)
+		if email_enabled.Enabled {
+			go email.Send(to, subject, email_body, gmail_username, gmail_password)
+		}
 	}
 }
 
