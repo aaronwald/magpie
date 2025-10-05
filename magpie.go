@@ -240,7 +240,7 @@ func DoEmail(ctx *kong.Context, hostname string, chough_addr string) MQTT.Client
 
 	token := client.Subscribe(CLI.Email.Topic, 1, nil)
 	token.Wait()
-	slog.Info("Subscribed", "topic", CLI.Email.Topic)
+	slog.Info("Subscribed.", "topic", CLI.Email.Topic)
 
 	return client
 }
