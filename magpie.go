@@ -5,6 +5,7 @@ import (
 	"899bushwick/magpie/lms"
 	"899bushwick/magpie/rcache"
 	"899bushwick/magpie/schema"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -17,6 +18,10 @@ import (
 	"github.com/alecthomas/kong"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/lmittmann/tint"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	pb "899bushwick/magpie/api"
 )
 
 var (
@@ -37,6 +42,52 @@ var CLI struct {
 	GmailUsernameFile string `help:"Gmail username." default:"gmail_username.txt"`
 	GmailPasswordFile string `help:"Gmail password. Access" default:"gmail_password.txt"`
 	RedisUrl          string `help:"Redis URL." default:"redis:6379"`
+	ChoughAddr        string `help:"Chough address." default:"localhost:9099"`
+}
+
+func SetDoorState(addr string, house_id int32, door_id string, state bool) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	client := pb.NewChoughServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	fh := &pb.DoorStatus{}
+
+	fh.Door.Id = door_id
+	fh.House.Id = house_id
+	fh.State.Open = state
+
+	ret, err := client.SetDoorState(ctx, fh)
+	if err != nil {
+		slog.Error("doEnable", "error", err)
+		panic(err)
+	}
+	slog.Info("doEnable", "ret", ret)
+}
+
+func GarageHandler(msg MQTT.Message, chough_addr string) {
+	if strings.HasSuffix(msg.Topic(), "/rpc") {
+		slog.Debug("GarageHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
+		var update schema.ShellyRpcInput
+		err := json.Unmarshal(msg.Payload(), &update)
+		if err != nil {
+			fmt.Printf("Error parsing JSON: %s\n", err)
+			return
+		}
+		slog.Debug("Parsed payload", "update", update)
+
+		// input state is the reed swtich (disconnected)
+		var garageKey string = strings.Replace(msg.Topic(), "/events/rpc", "", 1)
+		var house_id int32 = 1 // mostert
+		SetDoorState(chough_addr, house_id, garageKey, update.Params.Input.State)
+
+	} else if strings.HasSuffix(msg.Topic(), "/online") {
+		// ignore
+		slog.Debug("GarageHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
+	}
 }
 
 func OpenCloseEmail(msg MQTT.Message,
@@ -57,15 +108,14 @@ func OpenCloseEmail(msg MQTT.Message,
 	slog.Debug("Parsed payload", "update", update)
 
 	rcache.RedisUrl = CLI.RedisUrl
-	send_email := true // change detected
+	send_email := true
 	play_sound := false
-	sound_enabled, err := rcache.CheckEnabled()
+	sound_enabled, err := rcache.CheckSoundEnabled()
 	if err != nil {
 		slog.Error("check_enabled", "error", err)
 	} else {
 		play_sound = sound_enabled.Enabled
 	}
-	slog.Debug("check_enabled", "sound_enabled", sound_enabled)
 
 	email_body := fmt.Sprintf("Magpie. Topic: %s\nWindow: %d\n", msg.Topic(), update.Window)
 
@@ -77,7 +127,14 @@ func OpenCloseEmail(msg MQTT.Message,
 
 	openclose_map[msg.Topic()] = update.Window
 
-	if send_email {
+	email_enabled, err := rcache.CheckEmailEnabled()
+	if err != nil {
+		slog.Error("check_enabled", "error", err)
+	}
+	slog.Info("email_enabled", "value", email_enabled.Enabled, "send_email", send_email, "play_sound", play_sound)
+
+	// only send email if enabled
+	if send_email && email_enabled.Enabled {
 		var subject string
 		if update.Window == 1 {
 			subject = msg.Topic() + ": Open"
@@ -132,6 +189,12 @@ func MotionEmail(msg MQTT.Message,
 
 	motion_map[topic] = motion
 
+	email_enabled, err := rcache.CheckEmailEnabled()
+	if err != nil {
+		slog.Error("check_enabled", "error", err)
+	}
+	slog.Info("email_enabled", "value", email_enabled.Enabled, "send_email", send_email)
+
 	if send_email {
 		var subject string
 		if motion == 1 {
@@ -139,11 +202,13 @@ func MotionEmail(msg MQTT.Message,
 		} else {
 			subject = topic + ": Motion Cleared"
 		}
-		go email.Send(to, subject, email_body, gmail_username, gmail_password)
+		if email_enabled.Enabled {
+			go email.Send(to, subject, email_body, gmail_username, gmail_password)
+		}
 	}
 }
 
-func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
+func DoEmail(ctx *kong.Context, hostname string, chough_addr string) MQTT.Client {
 	opts := MQTT.NewClientOptions().AddBroker(fmt.Sprintf("tcp://%s:%d", CLI.Email.MqttHostname, CLI.Email.MqttPort))
 	opts.SetClientID("rook_" + hostname)
 
@@ -164,6 +229,10 @@ func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 			OpenCloseEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		} else if strings.HasPrefix(msg.Topic(), "mostert/motion/") {
 			MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
+		} else if strings.HasPrefix(msg.Topic(), "mostert/garage/") {
+			GarageHandler(msg, chough_addr)
+		} else {
+			slog.Warn("Unhandled topic", "topic", msg.Topic())
 		}
 	}
 
@@ -173,15 +242,13 @@ func DoEmail(ctx *kong.Context, hostname string) MQTT.Client {
 
 	client := MQTT.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		slog.Error("Mqtt", "connect", CLI.Email.MqttUsername)
-		slog.Error("Mqtt", "connect", CLI.Email.MqttPassword)
 		slog.Error("Mqtt", "connect", token.Error())
 		os.Exit(1)
 	}
 
 	token := client.Subscribe(CLI.Email.Topic, 1, nil)
 	token.Wait()
-	slog.Info("Subscribed", "topic", CLI.Email.Topic)
+	slog.Info("Subscribed.", "topic", CLI.Email.Topic)
 
 	return client
 }
@@ -205,7 +272,7 @@ func main() {
 	ctx := kong.Parse(&CLI)
 	switch ctx.Command() {
 	case "email <mqtt-username> <mqtt-password> <mqtt-hostname> <topic> <from> <to>":
-		DoEmail(ctx, hostname)
+		DoEmail(ctx, hostname, CLI.ChoughAddr)
 	default:
 		panic(ctx.Command())
 	}

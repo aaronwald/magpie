@@ -30,3 +30,23 @@ type ShellyOpenClose struct {
 	Addr          string `json:"addr"`
 	Rssi          int    `json:"rssi"`
 }
+
+type ShellyRpcInput struct {
+	Src    string `json:"src"`
+	Dst    string `json:"dst"`
+	Method string `json:"method"`
+	Params struct {
+		Timestamp float64 `json:"ts"`
+		Input     struct {
+			Id    int  `json:"id"`
+			State bool `json:"state"`
+		} `json:"input:0"`
+		Switch struct {
+			Id             int     `json:"id"`
+			Output         bool    `json:"output"`
+			Source         string  `json:"source"`
+			TimerDuration  float32 `json:"timer_duration"`
+			TimerStartedAt float64 `json:"timer_started_at"`
+		} `json:"switch:0"`
+	}
+}
