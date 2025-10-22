@@ -165,6 +165,7 @@ func ShellyHTHandler(msg MQTT.Message, chough_addr string) {
 	}
 	if update.Params.Temperature.TF != 0 {
 		slog.Debug("Parsed payload", "farenheit", update.Params.Temperature.TF, "humidity", update.Params.Humidity.RH)
+		rcache.SetShellyHT(msg.Topic(), update.Params.Temperature.TF, update.Params.Humidity.RH)
 	}
 }
 

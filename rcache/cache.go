@@ -68,6 +68,38 @@ func CheckEmailEnabled() (EnableEmail, error) {
 	return data, nil
 }
 
+func SetShellyHT(topic string, temperature float64, humidity float64) error {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     RedisUrl,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	payload := struct {
+		Temperature float64 `json:"temperature"`
+		Humidity    float64 `json:"humidity"`
+	}{
+		Temperature: temperature,
+		Humidity:    humidity,
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		slog.Error("set_shellyht", "error", err)
+		return err
+	}
+
+	val, err := rdb.Set(redisContext, topic, data, 0).Result()
+	if err != nil {
+		slog.Error("set_shellyht", "error", err)
+		return err
+	}
+
+	slog.Info("set_shellyht", "topic", topic)
+	slog.Info("set_shellyht", "result", val)
+	return nil
+}
+
 func SetOpenClose(topic string, status int) error {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     RedisUrl,
