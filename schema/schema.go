@@ -100,8 +100,8 @@ type ShellyHT struct {
 		BLE      struct{} `json:"ble"`
 		TS       float64  `json:"ts"`
 		Humidity struct {
-			RH int `json:"rh"`
-			ID int `json:"id"`
+			RH float64 `json:"rh"`
+			ID int     `json:"id"`
 		} `json:"humidity:0"`
 		WiFi struct {
 			Status string `json:"status"`
