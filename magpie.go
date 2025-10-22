@@ -274,7 +274,7 @@ func main() {
 
 	ctx := kong.Parse(&CLI)
 	switch ctx.Command() {
-	case "email <mqtt-username> <mqtt-password> <mqtt-hostname> <topic> <from> <to>":
+	case "email <mqtt-username> <mqtt-password> <mqtt-hostname> <from> <to>":
 		DoEmail(ctx, hostname, CLI.ChoughAddr)
 	default:
 		panic(ctx.Command())
