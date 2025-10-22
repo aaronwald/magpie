@@ -242,8 +242,8 @@ func DoEmail(ctx *kong.Context, hostname string, chough_addr string) MQTT.Client
 			MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		} else if strings.HasPrefix(msg.Topic(), "mostert/garage/") {
 			GarageHandler(msg, chough_addr)
-		} else if strings.HasPrefix(msg.Topic(), "shellyhtg3") {
-			ShellyHTHandler(msg, chough_addr)
+			// } else if strings.HasPrefix(msg.Topic(), "shellyhtg3") {
+			// ShellyHTHandler(msg, chough_addr)
 		} else {
 			slog.Warn("Unhandled topic", "topic", msg.Topic())
 		}
