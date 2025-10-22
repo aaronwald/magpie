@@ -157,13 +157,13 @@ func OpenCloseEmail(msg MQTT.Message,
 
 func ShellyHTHandler(msg MQTT.Message, chough_addr string) {
 	slog.Debug("ShellyHTHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
-	// var update schema.ShellyHT
-	// err := json.Unmarshal(msg.Payload(), &update)
-	// if err != nil {
-	// 	fmt.Printf("Error parsing JSON: %s\n", err)
-	// 	return
-	// }
-	// slog.Debug("Parsed payload", "farenheit", update.Params.Temperature.TF, "humidity", update.Params.Humidity.RH)
+	var update schema.ShellyHT
+	err := json.Unmarshal(msg.Payload(), &update)
+	if err != nil {
+		fmt.Printf("Error parsing JSON: %s\n", err)
+		return
+	}
+	slog.Debug("Parsed payload", "farenheit", update.Params.Temperature.TF, "humidity", update.Params.Humidity.RH)
 }
 
 func MotionEmail(msg MQTT.Message,
