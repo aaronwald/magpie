@@ -157,13 +157,13 @@ func OpenCloseEmail(msg MQTT.Message,
 
 func ShellyHTHandler(msg MQTT.Message, chough_addr string) {
 	slog.Debug("ShellyHTHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
-	var update schema.ShellyHT
-	err := json.Unmarshal(msg.Payload(), &update)
-	if err != nil {
-		fmt.Printf("Error parsing JSON: %s\n", err)
-		return
-	}
-	slog.Debug("Parsed payload", "farenheit", update.Params.Temperature.TF, "humidity", update.Params.Humidity.RH)
+	// var update schema.ShellyHT
+	// err := json.Unmarshal(msg.Payload(), &update)
+	// if err != nil {
+	// 	fmt.Printf("Error parsing JSON: %s\n", err)
+	// 	return
+	// }
+	// slog.Debug("Parsed payload", "farenheit", update.Params.Temperature.TF, "humidity", update.Params.Humidity.RH)
 }
 
 func MotionEmail(msg MQTT.Message,
@@ -242,8 +242,8 @@ func DoEmail(ctx *kong.Context, hostname string, chough_addr string) MQTT.Client
 			MotionEmail(msg, CLI.Email.From, CLI.Email.To, gmail_username, gmail_password)
 		} else if strings.HasPrefix(msg.Topic(), "mostert/garage/") {
 			GarageHandler(msg, chough_addr)
-			// } else if strings.HasPrefix(msg.Topic(), "shellyhtg3") {
-			// ShellyHTHandler(msg, chough_addr)
+		} else if strings.HasPrefix(msg.Topic(), "shellyhtg3") {
+			ShellyHTHandler(msg, chough_addr)
 		} else {
 			slog.Warn("Unhandled topic", "topic", msg.Topic())
 		}
