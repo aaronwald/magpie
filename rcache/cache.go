@@ -136,6 +136,24 @@ func SetPrinterBedTemp(printer string, temp string) error {
 	return nil
 }
 
+func SetPrinterNozzleTemp(printer string, temp string) error {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     RedisUrl,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	val, err := rdb.Set(redisContext, fmt.Sprintf("printer:%s:nozzle_temp", printer), temp, 0).Result()
+	if err != nil {
+		slog.Error("set_printer_nozzle_temp", "error", err)
+		return err
+	}
+
+	slog.Info("set_printer_nozzle_temp", "printer", printer)
+	slog.Info("set_printer_nozzle_temp", "result", val)
+	return nil
+}
+
 // func SetGarageState(topic string, state bool) error {
 // 	rdb := redis.NewClient(&redis.Options{
 // 		Addr:     RedisUrl,
