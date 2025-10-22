@@ -34,15 +34,15 @@ var CLI struct {
 		MqttPassword string `help:"MQTT password." arg:""`
 		MqttHostname string `help:"MQTT hostname." arg:""`
 		MqttPort     int    `help:"MQTT port." default:"1883"`
-		Topic        string `help:"MQTT topic to subscribe to." arg:""`
 		From         string `help:"Email from." arg:""`
 		To           string `help:"Email to." arg:""`
 	} `cmd:"" help:"Send email."`
 
-	GmailUsernameFile string `help:"Gmail username." default:"gmail_username.txt"`
-	GmailPasswordFile string `help:"Gmail password. Access" default:"gmail_password.txt"`
-	RedisUrl          string `help:"Redis URL." default:"redis:6379"`
-	ChoughAddr        string `help:"Chough address." default:"localhost:9099"`
+	GmailUsernameFile string   `help:"Gmail username." default:"gmail_username.txt"`
+	GmailPasswordFile string   `help:"Gmail password. Access" default:"gmail_password.txt"`
+	RedisUrl          string   `help:"Redis URL." default:"redis:6379"`
+	ChoughAddr        string   `help:"Chough address." default:"localhost:9099"`
+	Topics            []string `help:"MQTT topics to subscribe to."`
 }
 
 func SetDoorState(addr string, house_id int32, door_id string, state bool) {
@@ -246,9 +246,12 @@ func DoEmail(ctx *kong.Context, hostname string, chough_addr string) MQTT.Client
 		os.Exit(1)
 	}
 
-	token := client.Subscribe(CLI.Email.Topic, 1, nil)
-	token.Wait()
-	slog.Info("Subscribed.", "topic", CLI.Email.Topic)
+	for _, topic := range CLI.Topics {
+		slog.Info("Subscribing.", "topic", topic)
+		token := client.Subscribe(topic, 1, nil)
+		token.Wait()
+		slog.Info("Subscribed.", "topic", topic)
+	}
 
 	return client
 }
