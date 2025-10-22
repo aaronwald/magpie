@@ -118,6 +118,24 @@ func SetOpenClose(topic string, status int) error {
 	return nil
 }
 
+func SetPrinterBedTemp(printer string, temp string) error {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     RedisUrl,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	val, err := rdb.Set(redisContext, fmt.Sprintf("printer:%s:bed_temp", printer), temp, 0).Result()
+	if err != nil {
+		slog.Error("set_printer_bed_temp", "error", err)
+		return err
+	}
+
+	slog.Info("set_printer_bed_temp", "printer", printer)
+	slog.Info("set_printer_bed_temp", "result", val)
+	return nil
+}
+
 // func SetGarageState(topic string, state bool) error {
 // 	rdb := redis.NewClient(&redis.Options{
 // 		Addr:     RedisUrl,

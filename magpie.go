@@ -90,6 +90,20 @@ func GarageHandler(msg MQTT.Message, chough_addr string) {
 	}
 }
 
+func PrusaBasementHandler(msg MQTT.Message, chough_addr string) {
+	if strings.HasSuffix(msg.Topic(), "temp-bed") {
+		slog.Debug("PrusaBasementHandler", "topic", msg.Topic(), "payload", string(msg.Payload()))
+		// Extract printer name from topic: prusa/room/feature
+		parts := strings.Split(msg.Topic(), "/")
+		if len(parts) >= 2 {
+			printerName := parts[1]
+			rcache.SetPrinterBedTemp(printerName, string(msg.Payload()))
+		} else {
+			slog.Error("PrusaBasementHandler", "error", "invalid topic format", "topic", msg.Topic())
+		}
+	}
+}
+
 func OpenCloseEmail(msg MQTT.Message,
 	from string,
 	to string,
@@ -247,6 +261,8 @@ func DoEmail(ctx *kong.Context, hostname string, chough_addr string) MQTT.Client
 			GarageHandler(msg, chough_addr)
 		} else if strings.HasPrefix(msg.Topic(), "shellyhtg3") {
 			ShellyHTHandler(msg, chough_addr)
+		} else if strings.HasPrefix(msg.Topic(), "prusa/basement") {
+			PrusaBasementHandler(msg, chough_addr)
 		} else {
 			slog.Warn("Unhandled topic", "topic", msg.Topic())
 		}
